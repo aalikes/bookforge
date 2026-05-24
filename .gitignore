@@ -6,3 +6,4 @@ audio/*
 !audio/.gitkeep
 data/
 *.db
+conversions/
