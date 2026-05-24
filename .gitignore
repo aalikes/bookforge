@@ -1,0 +1,8 @@
+node_modules/
+.env
+uploads/*
+!uploads/.gitkeep
+audio/*
+!audio/.gitkeep
+data/
+*.db
