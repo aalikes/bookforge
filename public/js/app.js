@@ -301,6 +301,10 @@ const app = {
       document.getElementById('modal-book-title').textContent = book.title;
       const body = document.getElementById('book-detail-body');
 
+      const statusOptions = ['to-read', 'currently-reading', 'finished', 'abandoned'];
+      const currentStatus = book.reading_status || 'to-read';
+      const currentRating = book.my_rating || 0;
+
       body.innerHTML = `
         <div class="book-detail">
           <div class="book-detail-cover">
@@ -314,11 +318,32 @@ const app = {
             <p>${this.escape(book.author)}</p>
 
             <h4>Format</h4>
-            <p>${book.format} · ${this.formatBytes(book.file_size)}</p>
+            <p>${book.format}${book.file_size ? ' · ' + this.formatBytes(book.file_size) : ''}${book.pages ? ' · ' + book.pages + ' pages' : ''}</p>
+
+            <h4>Reading Status</h4>
+            <div class="status-selector">
+              ${statusOptions.map(s => `
+                <button class="status-btn ${s === currentStatus ? 'active' : ''}"
+                  onclick="app.updateReadingStatus('${book.id}', '${s}')">
+                  ${this.formatStatusLabel(s)}
+                </button>
+              `).join('')}
+            </div>
+
+            <h4>Rating</h4>
+            <div class="rating-stars">
+              ${[1,2,3,4,5].map(n => `
+                <span class="star ${n <= currentRating ? 'filled' : ''}"
+                  onclick="app.updateRating('${book.id}', ${n})">&#9733;</span>
+              `).join('')}
+              ${currentRating > 0 ? `<span class="rating-text">${currentRating}/5</span>` : ''}
+            </div>
 
             ${book.language ? `<h4>Language</h4><p>${book.language}</p>` : ''}
             ${book.publisher ? `<h4>Publisher</h4><p>${this.escape(book.publisher)}</p>` : ''}
             ${book.description ? `<h4>Description</h4><p class="description-text">${this.escape(book.description).slice(0, 300)}</p>` : ''}
+            ${book.date_read ? `<h4>Date Read</h4><p>${book.date_read}</p>` : ''}
+            ${book.review ? `<h4>Review</h4><p class="description-text">${this.escape(book.review).slice(0, 500)}</p>` : ''}
 
             <h4>Tags</h4>
             <div class="book-tags" id="detail-tags">
@@ -340,7 +365,7 @@ const app = {
                 ? `<button class="btn btn-ghost" onclick="app.openAudiobook('${book.id}')">Audiobook</button>`
                 : ''
               }
-              <button class="btn btn-ghost" onclick="app.downloadBook('${book.id}')">Download</button>
+              ${book.file_size > 0 ? `<button class="btn btn-ghost" onclick="app.downloadBook('${book.id}')">Download</button>` : ''}
               <button class="btn btn-ghost" onclick="app.syncBook('${book.id}')">Sync All</button>
               <button class="btn btn-danger" onclick="app.deleteBook('${book.id}')">Delete</button>
             </div>
@@ -689,6 +714,204 @@ const app = {
   },
 
   // ============================================================
+  // Goodreads Import
+  // ============================================================
+  openGoodreadsImport() {
+    document.getElementById('goodreads-import-modal').classList.remove('hidden');
+
+    const csvInput = document.getElementById('goodreads-csv-input');
+    csvInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) this.importGoodreadsCSV(e.target.files[0]);
+    });
+
+    const dropArea = document.getElementById('goodreads-csv-drop');
+    dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); });
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
+    dropArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropArea.classList.remove('drag-over');
+      if (e.dataTransfer.files.length > 0) this.importGoodreadsCSV(e.dataTransfer.files[0]);
+    });
+  },
+
+  closeGoodreadsImport() {
+    document.getElementById('goodreads-import-modal').classList.add('hidden');
+  },
+
+  switchImportTab(tab) {
+    document.querySelectorAll('.import-tab').forEach(t => t.classList.add('hidden'));
+    document.querySelectorAll('.import-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+    document.getElementById(`import-tab-${tab}`).classList.remove('hidden');
+    document.getElementById(`import-tab-${tab}`).classList.add('active');
+    event.target.classList.add('active');
+  },
+
+  async importGoodreadsCSV(file) {
+    const statusEl = document.getElementById('goodreads-import-status');
+    statusEl.classList.remove('hidden');
+    statusEl.innerHTML = '<p>Importing your Goodreads library...</p>';
+
+    try {
+      const formData = new FormData();
+      formData.append('book', file);
+
+      const res = await fetch('/api/integrations/goodreads/import-csv', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      statusEl.innerHTML = `
+        <div class="import-results">
+          <h4>Import Complete!</h4>
+          <div class="stats-grid">
+            <div class="stat"><span class="stat-value">${data.total}</span><span class="stat-label">Total Books</span></div>
+            <div class="stat"><span class="stat-value">${data.imported}</span><span class="stat-label">New Imports</span></div>
+            <div class="stat"><span class="stat-value">${data.updated}</span><span class="stat-label">Updated</span></div>
+          </div>
+          ${data.stats ? `
+          <div class="stats-grid">
+            <div class="stat"><span class="stat-value">${data.stats.byStatus['finished'] || 0}</span><span class="stat-label">Finished</span></div>
+            <div class="stat"><span class="stat-value">${data.stats.byStatus['currently-reading'] || 0}</span><span class="stat-label">Reading</span></div>
+            <div class="stat"><span class="stat-value">${data.stats.byStatus['to-read'] || 0}</span><span class="stat-label">To Read</span></div>
+            <div class="stat"><span class="stat-value">${data.stats.averageRating}</span><span class="stat-label">Avg Rating</span></div>
+          </div>` : ''}
+        </div>
+      `;
+
+      this.toast(`Imported ${data.imported} books from Goodreads`, 'success');
+      this.loadBooks();
+      this.loadTags();
+    } catch (err) {
+      statusEl.innerHTML = `<p style="color: var(--danger);">Error: ${err.message}</p>`;
+      this.toast('Goodreads import failed', 'error');
+    }
+  },
+
+  async importGoodreadsRSS() {
+    const userIdInput = document.getElementById('goodreads-user-id');
+    const shelfSelect = document.getElementById('goodreads-shelf');
+    const userId = userIdInput ? userIdInput.value.trim() : '';
+    const shelf = shelfSelect ? shelfSelect.value : 'read';
+
+    if (!userId) {
+      this.openGoodreadsImport();
+      this.switchImportTab('rss');
+      return;
+    }
+
+    const statusEl = document.getElementById('goodreads-rss-status');
+    statusEl.classList.remove('hidden');
+    statusEl.innerHTML = '<p>Fetching your Goodreads shelves...</p>';
+
+    try {
+      let url, body;
+      if (shelf === 'all') {
+        url = '/api/integrations/goodreads/import-all';
+        body = { user_id: userId };
+      } else {
+        url = '/api/integrations/goodreads/import-rss';
+        body = { user_id: userId, shelf };
+      }
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      statusEl.innerHTML = `
+        <div class="import-results">
+          <h4>Import Complete!</h4>
+          <p>${data.imported} new books imported, ${data.updated} updated from ${data.total} total.</p>
+        </div>
+      `;
+
+      this.toast(`Imported ${data.imported} books from Goodreads`, 'success');
+      this.loadBooks();
+      this.loadTags();
+    } catch (err) {
+      statusEl.innerHTML = `<p style="color: var(--danger);">Error: ${err.message}</p>`;
+      this.toast('Goodreads RSS import failed', 'error');
+    }
+  },
+
+  // ============================================================
+  // Readwise Import & Pipeline
+  // ============================================================
+  async importReadwiseHighlights() {
+    this.toast('Importing highlights from Readwise...', 'info');
+
+    try {
+      const res = await fetch('/api/integrations/readwise/import', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      this.toast(`Imported ${data.importedHighlights} highlights from ${data.books} books`, 'success');
+      this.loadBooks();
+    } catch (err) {
+      this.toast(`Readwise import failed: ${err.message}`, 'error');
+    }
+  },
+
+  async runReadwiseToNotion() {
+    this.toast('Running Readwise → Notion pipeline...', 'info');
+
+    try {
+      const res = await fetch('/api/integrations/readwise-to-notion', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      this.toast(
+        `Pipeline complete: ${data.booksProcessed} books, ${data.totalHighlights} highlights synced to Notion`,
+        'success'
+      );
+    } catch (err) {
+      this.toast(`Pipeline failed: ${err.message}`, 'error');
+    }
+  },
+
+  // ============================================================
+  // Reading Status
+  // ============================================================
+  async updateReadingStatus(bookId, status) {
+    try {
+      const res = await fetch(`/api/books/${bookId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reading_status: status })
+      });
+      if (!res.ok) throw new Error('Failed to update status');
+      this.toast(`Status updated to ${status}`, 'success');
+      this.openBookDetail(bookId);
+    } catch (err) {
+      this.toast('Failed to update status', 'error');
+    }
+  },
+
+  async updateRating(bookId, rating) {
+    try {
+      const res = await fetch(`/api/books/${bookId}/rating`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ my_rating: rating })
+      });
+      if (!res.ok) throw new Error('Failed to update rating');
+      this.toast(`Rating updated to ${rating}/5`, 'success');
+      this.openBookDetail(bookId);
+    } catch (err) {
+      this.toast('Failed to update rating', 'error');
+    }
+  },
+
+  // ============================================================
   // Utilities
   // ============================================================
   toast(message, type = 'info') {
@@ -712,6 +935,16 @@ const app = {
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+  },
+
+  formatStatusLabel(status) {
+    const labels = {
+      'to-read': 'To Read',
+      'currently-reading': 'Reading',
+      'finished': 'Finished',
+      'abandoned': 'Abandoned'
+    };
+    return labels[status] || status;
   }
 };
 

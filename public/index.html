@@ -177,14 +177,62 @@
       <header class="view-header">
         <h2>Integrations</h2>
       </header>
+
+      <!-- Pipelines Section -->
+      <div class="pipelines-section">
+        <h3 class="section-title">Pipelines</h3>
+        <div class="pipeline-cards">
+          <div class="pipeline-card" onclick="app.runReadwiseToNotion()">
+            <div class="pipeline-flow">
+              <span class="pipeline-node readwise-icon">R</span>
+              <span class="pipeline-arrow">→</span>
+              <span class="pipeline-node notion-icon">N</span>
+            </div>
+            <h4>Readwise → Notion</h4>
+            <p>Pull all highlights from Readwise and sync them to your Notion reading database</p>
+            <button class="btn btn-sm btn-primary">Run Pipeline</button>
+          </div>
+          <div class="pipeline-card" onclick="app.importReadwiseHighlights()">
+            <div class="pipeline-flow">
+              <span class="pipeline-node readwise-icon">R</span>
+              <span class="pipeline-arrow">→</span>
+              <span class="pipeline-node bookforge-icon">B</span>
+            </div>
+            <h4>Readwise → BookForge</h4>
+            <p>Import all your Readwise highlights into BookForge's local library</p>
+            <button class="btn btn-sm btn-primary">Import Highlights</button>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="section-title">Connected Services</h3>
       <div class="integrations-grid" id="integrations-grid">
+        <!-- Goodreads -->
+        <div class="integration-card" data-integration="goodreads">
+          <div class="integration-header">
+            <div class="integration-icon goodreads-icon">GR</div>
+            <div>
+              <h3>Goodreads</h3>
+              <p>Import shelves, ratings, and reading status</p>
+            </div>
+          </div>
+          <div class="integration-status" id="status-goodreads">
+            <span class="status-dot"></span>
+            <span class="status-text">Checking...</span>
+          </div>
+          <div class="integration-actions">
+            <button class="btn btn-sm btn-primary" onclick="app.openGoodreadsImport()">Import Library</button>
+            <button class="btn btn-sm" onclick="app.importGoodreadsRSS()">Sync via RSS</button>
+          </div>
+        </div>
+
         <!-- Readwise -->
         <div class="integration-card" data-integration="readwise">
           <div class="integration-header">
             <div class="integration-icon readwise-icon">R</div>
             <div>
               <h3>Readwise</h3>
-              <p>Sync highlights and reading progress</p>
+              <p>Sync highlights bidirectionally</p>
             </div>
           </div>
           <div class="integration-status" id="status-readwise">
@@ -192,7 +240,8 @@
             <span class="status-text">Checking...</span>
           </div>
           <div class="integration-actions">
-            <button class="btn btn-sm" onclick="app.syncIntegration('readwise')">Sync All Books</button>
+            <button class="btn btn-sm" onclick="app.syncIntegration('readwise')">Push Highlights</button>
+            <button class="btn btn-sm" onclick="app.importReadwiseHighlights()">Pull Highlights</button>
           </div>
         </div>
 
@@ -202,7 +251,7 @@
             <div class="integration-icon notion-icon">N</div>
             <div>
               <h3>Notion</h3>
-              <p>Sync book data and notes to a Notion database</p>
+              <p>Sync books, highlights, and status to Notion database</p>
             </div>
           </div>
           <div class="integration-status" id="status-notion">
@@ -211,6 +260,7 @@
           </div>
           <div class="integration-actions">
             <button class="btn btn-sm" onclick="app.syncIntegration('notion')">Sync All Books</button>
+            <button class="btn btn-sm" onclick="app.runReadwiseToNotion()">Readwise → Notion</button>
           </div>
         </div>
 
@@ -255,8 +305,13 @@
         <h3>Setup Guide</h3>
         <div class="help-cards">
           <div class="help-card">
+            <h4>Goodreads</h4>
+            <p><strong>CSV Import:</strong> Go to <a href="https://www.goodreads.com/review/import" target="_blank">goodreads.com/review/import</a>, click "Export Library", and upload the CSV.</p>
+            <p><strong>RSS Sync:</strong> Set <code>GOODREADS_USER_ID</code> in your <code>.env</code>. Find your ID in your Goodreads profile URL.</p>
+          </div>
+          <div class="help-card">
             <h4>Readwise</h4>
-            <p>Get your access token from <a href="https://readwise.io/access_token" target="_blank">readwise.io/access_token</a> and add it to your <code>.env</code> file.</p>
+            <p>Get your access token from <a href="https://readwise.io/access_token" target="_blank">readwise.io/access_token</a> and add it to your <code>.env</code> file as <code>READWISE_ACCESS_TOKEN</code>.</p>
           </div>
           <div class="help-card">
             <h4>Notion</h4>
@@ -269,6 +324,53 @@
           <div class="help-card">
             <h4>Obsidian</h4>
             <p>Set <code>OBSIDIAN_VAULT_PATH</code> to your vault location, or use the <a href="https://github.com/coddingtonbear/obsidian-local-rest-api" target="_blank">Local REST API plugin</a>.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Goodreads Import Modal -->
+      <div id="goodreads-import-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="app.closeGoodreadsImport()"></div>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Import from Goodreads</h3>
+            <button class="modal-close" onclick="app.closeGoodreadsImport()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="import-tabs">
+              <button class="tab-btn active" onclick="app.switchImportTab('csv')">CSV Import</button>
+              <button class="tab-btn" onclick="app.switchImportTab('rss')">RSS Sync</button>
+            </div>
+            <div id="import-tab-csv" class="import-tab active">
+              <p>Export your Goodreads library from <a href="https://www.goodreads.com/review/import" target="_blank">goodreads.com/review/import</a>, then upload the CSV file below.</p>
+              <div class="upload-drop-area" id="goodreads-csv-drop">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p>Drop your Goodreads CSV here</p>
+                <span>or</span>
+                <button class="btn btn-primary" onclick="document.getElementById('goodreads-csv-input').click()">Choose CSV File</button>
+                <input type="file" id="goodreads-csv-input" accept=".csv" hidden>
+              </div>
+              <div id="goodreads-import-status" class="import-status hidden"></div>
+            </div>
+            <div id="import-tab-rss" class="import-tab hidden">
+              <p>Enter your Goodreads User ID to sync shelves via RSS. Your profile must be public.</p>
+              <div class="form-group">
+                <label>Goodreads User ID</label>
+                <input type="text" id="goodreads-user-id" placeholder="e.g., 12345678" class="form-input">
+                <small>Find this in your Goodreads profile URL: goodreads.com/user/show/<strong>12345678</strong></small>
+              </div>
+              <div class="form-group">
+                <label>Shelf to import</label>
+                <select id="goodreads-shelf" class="sort-select">
+                  <option value="all">All Shelves</option>
+                  <option value="read">Read</option>
+                  <option value="currently-reading">Currently Reading</option>
+                  <option value="to-read">To Read</option>
+                </select>
+              </div>
+              <button class="btn btn-primary" onclick="app.importGoodreadsRSS()">Import from Goodreads</button>
+              <div id="goodreads-rss-status" class="import-status hidden"></div>
+            </div>
           </div>
         </div>
       </div>

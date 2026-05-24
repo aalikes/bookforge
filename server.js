@@ -36,7 +36,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    const allowed = ['.epub', '.pdf', '.mobi', '.txt', '.html', '.htm'];
+    const allowed = ['.epub', '.pdf', '.mobi', '.txt', '.html', '.htm', '.csv'];
     const ext = path.extname(file.originalname).toLowerCase();
     cb(null, allowed.includes(ext));
   },
@@ -50,7 +50,7 @@ db.initialize();
 // Health Check
 // ============================================================
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.0.0' });
+  res.json({ status: 'ok', version: '1.1.0' });
 });
 
 // ============================================================
@@ -58,9 +58,17 @@ app.get('/api/health', (req, res) => {
 // ============================================================
 app.get('/api/books', (req, res) => {
   try {
-    const { search, tag, sort, order } = req.query;
-    const books = db.getBooks({ search, tag, sort, order });
+    const { search, tag, sort, order, status } = req.query;
+    const books = db.getBooks({ search, tag, sort, order, status });
     res.json(books);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/books/stats', (req, res) => {
+  try {
+    res.json(db.getReadingStats());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -124,6 +132,35 @@ app.post('/api/books/upload', upload.single('book'), async (req, res) => {
 app.put('/api/books/:id', (req, res) => {
   try {
     const book = db.updateBook(req.params.id, req.body);
+    if (!book) return res.status(404).json({ error: 'Book not found' });
+    res.json(book);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/books/:id/status', (req, res) => {
+  try {
+    const { reading_status } = req.body;
+    const valid = ['to-read', 'currently-reading', 'finished', 'abandoned'];
+    if (!valid.includes(reading_status)) {
+      return res.status(400).json({ error: `Invalid status. Valid: ${valid.join(', ')}` });
+    }
+    const book = db.updateBook(req.params.id, { reading_status });
+    if (!book) return res.status(404).json({ error: 'Book not found' });
+    res.json(book);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/books/:id/rating', (req, res) => {
+  try {
+    const { my_rating } = req.body;
+    if (my_rating < 0 || my_rating > 5) {
+      return res.status(400).json({ error: 'Rating must be 0-5' });
+    }
+    const book = db.updateBook(req.params.id, { my_rating });
     if (!book) return res.status(404).json({ error: 'Book not found' });
     res.json(book);
   } catch (err) {
@@ -342,6 +379,199 @@ app.get('/api/integrations/status', (req, res) => {
   res.json(integrations.getStatus());
 });
 
+// --- Goodreads ---
+app.post('/api/integrations/goodreads/import-csv', upload.single('book'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No CSV file uploaded' });
+
+    const csvContent = fs.readFileSync(req.file.path, 'utf-8');
+    const books = integrations.goodreads.parseCSV(csvContent);
+
+    let imported = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    for (const grBook of books) {
+      const existing = db.findBookByGoodreadsId(grBook.goodreads_id) ||
+                       db.findBookByTitle(grBook.title);
+
+      if (existing) {
+        db.updateBook(existing.id, {
+          reading_status: grBook.reading_status,
+          my_rating: grBook.my_rating,
+          goodreads_id: grBook.goodreads_id,
+          pages: grBook.pages,
+          date_read: grBook.date_read,
+          review: grBook.review
+        });
+        if (grBook.shelves.length > 0) {
+          for (const shelf of grBook.shelves) {
+            db.addTag(existing.id, shelf);
+          }
+        }
+        updated++;
+      } else {
+        const bookId = uuidv4();
+        db.addBook({
+          id: bookId,
+          title: grBook.title,
+          author: grBook.author,
+          description: grBook.review || '',
+          publisher: grBook.publisher,
+          file_path: 'goodreads-import',
+          file_name: `${grBook.title}.goodreads`,
+          file_size: 0,
+          format: 'GOODREADS',
+          reading_status: grBook.reading_status,
+          my_rating: grBook.my_rating,
+          goodreads_id: grBook.goodreads_id,
+          pages: grBook.pages,
+          date_read: grBook.date_read,
+          review: grBook.review
+        });
+        if (grBook.shelves.length > 0) {
+          for (const shelf of grBook.shelves) {
+            db.addTag(bookId, shelf);
+          }
+        }
+        imported++;
+      }
+    }
+
+    // Clean up the uploaded CSV
+    try { fs.unlinkSync(req.file.path); } catch (e) { /* ok */ }
+
+    res.json({
+      success: true,
+      imported,
+      updated,
+      skipped,
+      total: books.length,
+      stats: integrations.goodreads.getStats(books)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/integrations/goodreads/import-rss', async (req, res) => {
+  try {
+    const userId = req.body.user_id || process.env.GOODREADS_USER_ID;
+    if (!userId) return res.status(400).json({ error: 'Goodreads user ID required' });
+
+    const shelf = req.body.shelf || 'read';
+    const books = await integrations.goodreads.fetchShelfRSS(userId, shelf);
+
+    let imported = 0;
+    let updated = 0;
+
+    for (const grBook of books) {
+      const existing = db.findBookByGoodreadsId(grBook.goodreads_id) ||
+                       db.findBookByTitle(grBook.title);
+
+      if (existing) {
+        db.updateBook(existing.id, {
+          reading_status: grBook.reading_status,
+          my_rating: grBook.my_rating,
+          goodreads_id: grBook.goodreads_id,
+          pages: grBook.pages,
+          date_read: grBook.date_read,
+          review: grBook.review
+        });
+        updated++;
+      } else {
+        const bookId = uuidv4();
+        db.addBook({
+          id: bookId,
+          title: grBook.title,
+          author: grBook.author,
+          description: grBook.description || '',
+          file_path: 'goodreads-import',
+          file_name: `${grBook.title}.goodreads`,
+          file_size: 0,
+          format: 'GOODREADS',
+          reading_status: grBook.reading_status,
+          my_rating: grBook.my_rating,
+          goodreads_id: grBook.goodreads_id,
+          pages: grBook.pages,
+          date_read: grBook.date_read,
+          review: grBook.review
+        });
+        imported++;
+      }
+    }
+
+    res.json({
+      success: true,
+      shelf,
+      imported,
+      updated,
+      total: books.length,
+      stats: integrations.goodreads.getStats(books)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/integrations/goodreads/import-all', async (req, res) => {
+  try {
+    const userId = req.body.user_id || process.env.GOODREADS_USER_ID;
+    if (!userId) return res.status(400).json({ error: 'Goodreads user ID required' });
+
+    const allBooks = await integrations.goodreads.fetchAllShelves(userId);
+
+    let imported = 0;
+    let updated = 0;
+
+    for (const grBook of allBooks) {
+      const existing = db.findBookByGoodreadsId(grBook.goodreads_id) ||
+                       db.findBookByTitle(grBook.title);
+
+      if (existing) {
+        db.updateBook(existing.id, {
+          reading_status: grBook.reading_status,
+          my_rating: grBook.my_rating,
+          goodreads_id: grBook.goodreads_id,
+          pages: grBook.pages,
+          date_read: grBook.date_read
+        });
+        updated++;
+      } else {
+        const bookId = uuidv4();
+        db.addBook({
+          id: bookId,
+          title: grBook.title,
+          author: grBook.author,
+          description: grBook.description || '',
+          file_path: 'goodreads-import',
+          file_name: `${grBook.title}.goodreads`,
+          file_size: 0,
+          format: 'GOODREADS',
+          reading_status: grBook.reading_status,
+          my_rating: grBook.my_rating,
+          goodreads_id: grBook.goodreads_id,
+          pages: grBook.pages,
+          date_read: grBook.date_read,
+          review: grBook.review || ''
+        });
+        imported++;
+      }
+    }
+
+    res.json({
+      success: true,
+      imported,
+      updated,
+      total: allBooks.length,
+      stats: integrations.goodreads.getStats(allBooks)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Readwise ---
 app.post('/api/integrations/readwise/sync', async (req, res) => {
   try {
     const { book_id } = req.body;
@@ -356,6 +586,67 @@ app.post('/api/integrations/readwise/sync', async (req, res) => {
   }
 });
 
+app.post('/api/integrations/readwise/import', async (req, res) => {
+  try {
+    const result = await integrations.readwise.importHighlights();
+
+    let importedHighlights = 0;
+    for (const { book, highlights } of result.data) {
+      let existingBook = db.findBookByTitle(book.title);
+      if (!existingBook) {
+        const bookId = uuidv4();
+        db.addBook({
+          id: bookId,
+          title: book.title,
+          author: book.author || 'Unknown',
+          description: '',
+          file_path: 'readwise-import',
+          file_name: `${book.title}.readwise`,
+          file_size: 0,
+          format: 'READWISE'
+        });
+        existingBook = db.getBook(bookId);
+      }
+
+      for (const h of highlights) {
+        try {
+          db.addHighlight({
+            id: uuidv4(),
+            book_id: existingBook.id,
+            text: h.text,
+            note: h.note || '',
+            chapter_index: 0,
+            position: h.location || 0,
+            color: h.color || '#ffeb3b',
+            source: 'readwise'
+          });
+          importedHighlights++;
+        } catch (e) { /* skip duplicate highlights */ }
+      }
+    }
+
+    res.json({
+      success: true,
+      books: result.books,
+      totalHighlights: result.totalHighlights,
+      importedHighlights
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Readwise → Notion Pipeline ---
+app.post('/api/integrations/readwise-to-notion', async (req, res) => {
+  try {
+    const result = await integrations.readwiseToNotion();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Notion ---
 app.post('/api/integrations/notion/sync', async (req, res) => {
   try {
     const { book_id } = req.body;
@@ -371,6 +662,16 @@ app.post('/api/integrations/notion/sync', async (req, res) => {
   }
 });
 
+app.get('/api/integrations/notion/pages', async (req, res) => {
+  try {
+    const pages = await integrations.notion.getPages();
+    res.json(pages);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- GitHub ---
 app.post('/api/integrations/github/sync', async (req, res) => {
   try {
     const { book_id } = req.body;
@@ -386,6 +687,7 @@ app.post('/api/integrations/github/sync', async (req, res) => {
   }
 });
 
+// --- Obsidian ---
 app.post('/api/integrations/obsidian/sync', async (req, res) => {
   try {
     const { book_id } = req.body;
