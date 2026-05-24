@@ -1137,6 +1137,9 @@ a:hover { color: var(--accent-hover); }
 .integration-card[data-integration="github"]::before {
   background: linear-gradient(90deg, #333, #666);
 }
+.integration-card[data-integration="goodreads"]::before {
+  background: linear-gradient(90deg, #553b08, #8b6914);
+}
 .integration-card[data-integration="obsidian"]::before {
   background: linear-gradient(90deg, #7c3aed, #a78bfa);
 }
@@ -1161,10 +1164,12 @@ a:hover { color: var(--accent-hover); }
   box-shadow: var(--shadow-sm);
 }
 
+.goodreads-icon { background: linear-gradient(135deg, #553b08, #8b6914); color: #f4e2a6; font-size: 0.85rem; }
 .readwise-icon { background: linear-gradient(135deg, #5C3D2E, #7a5040); color: #FCA311; }
 .notion-icon { background: #fff; color: #000; }
 .github-icon { background: linear-gradient(135deg, #24292e, #444); color: #fff; }
 .obsidian-icon { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; }
+.bookforge-icon { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: #fff; }
 
 .integration-header h3 {
   font-size: 1rem;
@@ -1400,6 +1405,273 @@ a:hover { color: var(--accent-hover); }
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ============================================================
+   Pipelines
+   ============================================================ */
+.pipelines-section {
+  margin-bottom: 2rem;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.pipeline-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.pipeline-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.pipeline-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.pipeline-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+.pipeline-card:hover::before {
+  opacity: 1;
+}
+
+.pipeline-flow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pipeline-node {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.pipeline-arrow {
+  font-size: 1.5rem;
+  color: var(--accent);
+  font-weight: 300;
+}
+
+.pipeline-card h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.pipeline-card p {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   Reading Status & Rating
+   ============================================================ */
+.status-selector {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.status-btn {
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-sans);
+}
+.status-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.status-btn.active {
+  background: var(--accent-muted);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.rating-stars {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-bottom: 0.85rem;
+}
+.rating-stars .star {
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: var(--border);
+  transition: color 0.15s;
+}
+.rating-stars .star:hover,
+.rating-stars .star.filled {
+  color: #f59e0b;
+}
+.rating-stars .rating-text {
+  margin-left: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ============================================================
+   Goodreads Import Modal
+   ============================================================ */
+.import-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.tab-btn {
+  padding: 0.5rem 1.25rem;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition);
+  font-family: var(--font-sans);
+}
+.tab-btn:hover {
+  color: var(--text-primary);
+}
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.import-tab {
+  display: none;
+}
+.import-tab.active {
+  display: block;
+}
+
+.import-tab p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+.form-group label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: var(--text-primary);
+}
+.form-group small {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: all var(--transition);
+}
+.form-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.import-status {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.import-results h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: var(--success);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.stat {
+  text-align: center;
+  padding: 0.5rem;
+  background: var(--bg-card);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+}
+.stat .stat-value {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+.stat .stat-label {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
 
 /* ============================================================
    Responsive

@@ -1,6 +1,6 @@
 {
   "name": "bookforge",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Modern web-based e-book management hub with audiobook generation and reading platform integrations",
   "main": "server.js",
   "scripts": {
@@ -16,12 +16,14 @@
     "readwise",
     "notion",
     "obsidian",
-    "calibre"
+    "calibre",
+    "goodreads"
   ],
   "author": "Shah Saint-Cyr",
   "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^11.0.0",
+    "csv-parse": "^6.2.1",
     "dotenv": "^16.4.0",
     "epub2": "^3.0.2",
     "express": "^4.21.0",
