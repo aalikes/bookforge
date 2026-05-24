@@ -352,7 +352,8 @@ app.post('/api/books/:id/convert', async (req, res) => {
 });
 
 app.get('/api/conversions/:filename', (req, res) => {
-  const filePath = path.join(__dirname, 'conversions', req.params.filename);
+  const filename = path.basename(req.params.filename);
+  const filePath = path.join(__dirname, 'conversions', filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
   res.sendFile(filePath);
 });
