@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BookForge — E-book Hub</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <nav id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <h1 class="logo">
+        <span class="logo-icon">📖</span>
+        BookForge
+      </h1>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#" data-view="library" class="nav-link active">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Library
+      </a></li>
+      <li><a href="#" data-view="reader" class="nav-link">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        Reader
+      </a></li>
+      <li><a href="#" data-view="audiobook" class="nav-link">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        Audiobook
+      </a></li>
+      <li><a href="#" data-view="integrations" class="nav-link">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Integrations
+      </a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <div class="stats" id="stats">
+        <span>0 books</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main id="main-content" class="main-content">
+
+    <!-- Library View -->
+    <section id="view-library" class="view active">
+      <header class="view-header">
+        <div class="header-left">
+          <h2>Your Library</h2>
+          <div class="search-bar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="search-input" placeholder="Search books...">
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="view-toggle">
+            <button id="btn-grid" class="toggle-btn active" title="Grid View">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            </button>
+            <button id="btn-list" class="toggle-btn" title="List View">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
+          </div>
+          <select id="sort-select" class="sort-select">
+            <option value="created_at">Recently Added</option>
+            <option value="title">Title</option>
+            <option value="author">Author</option>
+            <option value="file_size">File Size</option>
+          </select>
+          <button id="btn-upload" class="btn btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload Book
+          </button>
+        </div>
+      </header>
+
+      <div class="tags-bar" id="tags-bar"></div>
+
+      <div id="drop-zone" class="drop-zone hidden">
+        <div class="drop-zone-content">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Drop your e-book file here</p>
+          <span>EPUB, PDF, MOBI, TXT supported</span>
+        </div>
+      </div>
+
+      <div id="book-grid" class="book-grid"></div>
+      <div id="empty-state" class="empty-state hidden">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <h3>Your library is empty</h3>
+        <p>Upload an e-book to get started</p>
+        <button class="btn btn-primary" onclick="document.getElementById('btn-upload').click()">Upload Your First Book</button>
+      </div>
+    </section>
+
+    <!-- Reader View -->
+    <section id="view-reader" class="view">
+      <div id="reader-placeholder" class="reader-placeholder">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <h3>Select a book to read</h3>
+        <p>Choose a book from your library to start reading</p>
+      </div>
+      <div id="reader-container" class="reader-container hidden">
+        <div class="reader-header">
+          <button id="reader-back" class="btn btn-ghost">← Library</button>
+          <h3 id="reader-title"></h3>
+          <div class="reader-controls">
+            <button id="btn-font-down" class="btn btn-ghost" title="Decrease font size">A-</button>
+            <button id="btn-font-up" class="btn btn-ghost" title="Increase font size">A+</button>
+            <button id="btn-theme-toggle" class="btn btn-ghost" title="Toggle dark mode">🌙</button>
+          </div>
+        </div>
+        <div class="reader-body">
+          <div class="reader-sidebar">
+            <h4>Chapters</h4>
+            <ul id="chapter-list" class="chapter-list"></ul>
+          </div>
+          <div id="reader-content" class="reader-content"></div>
+        </div>
+        <div class="reader-footer">
+          <button id="btn-prev-chapter" class="btn btn-ghost">← Previous</button>
+          <span id="reader-progress">Chapter 1</span>
+          <button id="btn-next-chapter" class="btn btn-ghost">Next →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Audiobook View -->
+    <section id="view-audiobook" class="view">
+      <div id="audiobook-placeholder" class="reader-placeholder">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <h3>Audiobook Generator</h3>
+        <p>Select a book from your library to generate an audiobook</p>
+      </div>
+      <div id="audiobook-container" class="audiobook-container hidden">
+        <div class="audiobook-header">
+          <h3 id="audiobook-title"></h3>
+        </div>
+        <div class="audiobook-controls">
+          <div class="form-group">
+            <label>Select Chapter</label>
+            <select id="tts-chapter" class="sort-select">
+              <option value="-1">All Chapters</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Voice</label>
+            <select id="tts-voice" class="sort-select">
+              <option value="default">Default (Browser)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Speed: <span id="speed-value">1.0x</span></label>
+            <input type="range" id="tts-speed" min="0.5" max="2.0" step="0.1" value="1.0">
+          </div>
+          <button id="btn-generate-tts" class="btn btn-primary">Generate Audiobook</button>
+        </div>
+        <div id="tts-status" class="tts-status hidden"></div>
+        <div class="audiobook-player hidden" id="audiobook-player">
+          <h4>Now Playing</h4>
+          <div class="player-controls">
+            <button id="btn-tts-play" class="btn btn-primary btn-round">▶</button>
+            <button id="btn-tts-pause" class="btn btn-ghost btn-round">⏸</button>
+            <button id="btn-tts-stop" class="btn btn-ghost btn-round">⏹</button>
+          </div>
+          <div id="tts-current-text" class="tts-current-text"></div>
+        </div>
+        <div id="audio-files-list" class="audio-files-list"></div>
+      </div>
+    </section>
+
+    <!-- Integrations View -->
+    <section id="view-integrations" class="view">
+      <header class="view-header">
+        <h2>Integrations</h2>
+      </header>
+      <div class="integrations-grid" id="integrations-grid">
+        <!-- Readwise -->
+        <div class="integration-card" data-integration="readwise">
+          <div class="integration-header">
+            <div class="integration-icon readwise-icon">R</div>
+            <div>
+              <h3>Readwise</h3>
+              <p>Sync highlights and reading progress</p>
+            </div>
+          </div>
+          <div class="integration-status" id="status-readwise">
+            <span class="status-dot"></span>
+            <span class="status-text">Checking...</span>
+          </div>
+          <div class="integration-actions">
+            <button class="btn btn-sm" onclick="app.syncIntegration('readwise')">Sync All Books</button>
+          </div>
+        </div>
+
+        <!-- Notion -->
+        <div class="integration-card" data-integration="notion">
+          <div class="integration-header">
+            <div class="integration-icon notion-icon">N</div>
+            <div>
+              <h3>Notion</h3>
+              <p>Sync book data and notes to a Notion database</p>
+            </div>
+          </div>
+          <div class="integration-status" id="status-notion">
+            <span class="status-dot"></span>
+            <span class="status-text">Checking...</span>
+          </div>
+          <div class="integration-actions">
+            <button class="btn btn-sm" onclick="app.syncIntegration('notion')">Sync All Books</button>
+          </div>
+        </div>
+
+        <!-- GitHub -->
+        <div class="integration-card" data-integration="github">
+          <div class="integration-header">
+            <div class="integration-icon github-icon">G</div>
+            <div>
+              <h3>GitHub</h3>
+              <p>Push reading notes as markdown to a GitHub repo</p>
+            </div>
+          </div>
+          <div class="integration-status" id="status-github">
+            <span class="status-dot"></span>
+            <span class="status-text">Checking...</span>
+          </div>
+          <div class="integration-actions">
+            <button class="btn btn-sm" onclick="app.syncIntegration('github')">Sync All Books</button>
+          </div>
+        </div>
+
+        <!-- Obsidian -->
+        <div class="integration-card" data-integration="obsidian">
+          <div class="integration-header">
+            <div class="integration-icon obsidian-icon">O</div>
+            <div>
+              <h3>Obsidian</h3>
+              <p>Sync notes to your Obsidian vault</p>
+            </div>
+          </div>
+          <div class="integration-status" id="status-obsidian">
+            <span class="status-dot"></span>
+            <span class="status-text">Checking...</span>
+          </div>
+          <div class="integration-actions">
+            <button class="btn btn-sm" onclick="app.syncIntegration('obsidian')">Sync All Books</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="integration-help">
+        <h3>Setup Guide</h3>
+        <div class="help-cards">
+          <div class="help-card">
+            <h4>Readwise</h4>
+            <p>Get your access token from <a href="https://readwise.io/access_token" target="_blank">readwise.io/access_token</a> and add it to your <code>.env</code> file.</p>
+          </div>
+          <div class="help-card">
+            <h4>Notion</h4>
+            <p>Create a <a href="https://www.notion.so/my-integrations" target="_blank">Notion integration</a>, share a database with it, and add the API key and database ID to your <code>.env</code> file.</p>
+          </div>
+          <div class="help-card">
+            <h4>GitHub</h4>
+            <p>Create a <a href="https://github.com/settings/tokens" target="_blank">personal access token</a> with repo scope. Set <code>GITHUB_TOKEN</code> and <code>GITHUB_REPO</code> in your <code>.env</code>.</p>
+          </div>
+          <div class="help-card">
+            <h4>Obsidian</h4>
+            <p>Set <code>OBSIDIAN_VAULT_PATH</code> to your vault location, or use the <a href="https://github.com/coddingtonbear/obsidian-local-rest-api" target="_blank">Local REST API plugin</a>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Upload Modal -->
+  <div id="upload-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Upload E-book</h3>
+        <button class="modal-close" onclick="app.closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="upload-drop" class="upload-drop-area">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Drag & drop your file here</p>
+          <span>or</span>
+          <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">Choose File</button>
+          <input type="file" id="file-input" accept=".epub,.pdf,.mobi,.txt,.html,.htm" hidden>
+          <p class="file-types">Supports: EPUB, PDF, MOBI, TXT, HTML</p>
+        </div>
+        <div id="upload-progress" class="upload-progress hidden">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <p id="upload-status">Uploading...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Book Detail Modal -->
+  <div id="book-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-book-title"></h3>
+        <button class="modal-close" onclick="app.closeBookModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="book-detail-body"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <input type="file" id="hidden-file-input" accept=".epub,.pdf,.mobi,.txt,.html,.htm" hidden>
+  <script src="/js/app.js"></script>
+</body>
+</html>
