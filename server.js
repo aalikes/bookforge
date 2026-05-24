@@ -50,7 +50,7 @@ db.initialize();
 // Health Check
 // ============================================================
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.1.0' });
+  res.json({ status: 'ok', version: '2.0.0' });
 });
 
 // ============================================================
@@ -308,6 +308,136 @@ app.delete('/api/books/:id/tags/:tag', (req, res) => {
   try {
     db.removeTag(req.params.id, req.params.tag);
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// Format Conversion API
+// ============================================================
+const converter = require('./lib/converter');
+
+app.get('/api/books/:id/convert/options', (req, res) => {
+  try {
+    const book = db.getBook(req.params.id);
+    if (!book) return res.status(404).json({ error: 'Book not found' });
+    const options = converter.getConversionOptions(book.format);
+    res.json({ sourceFormat: book.format, targetFormats: options });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/books/:id/convert', async (req, res) => {
+  try {
+    const book = db.getBook(req.params.id);
+    if (!book) return res.status(404).json({ error: 'Book not found' });
+
+    const { targetFormat } = req.body;
+    if (!targetFormat) return res.status(400).json({ error: 'targetFormat is required' });
+
+    const outputFilename = `${book.id}_${book.title.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30)}.${targetFormat.toLowerCase()}`;
+    const outputPath = await converter.convert(book.file_path, book.format, targetFormat, outputFilename);
+
+    res.json({
+      success: true,
+      downloadUrl: `/api/conversions/${path.basename(outputPath)}`,
+      filename: `${book.title}.${targetFormat.toLowerCase()}`,
+      format: targetFormat
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/conversions/:filename', (req, res) => {
+  const filename = path.basename(req.params.filename);
+  const filePath = path.join(__dirname, 'conversions', filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  res.sendFile(filePath);
+});
+
+// ============================================================
+// Bookmarks API
+// ============================================================
+app.get('/api/books/:id/bookmarks', (req, res) => {
+  try {
+    const bookmarks = db.getBookmarks(req.params.id);
+    res.json(bookmarks);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/books/:id/bookmarks', (req, res) => {
+  try {
+    const { chapter_index, position, label } = req.body;
+    const bookmark = db.addBookmark({
+      id: uuidv4(),
+      book_id: req.params.id,
+      chapter_index,
+      position,
+      label: label || `Chapter ${(chapter_index || 0) + 1}`
+    });
+    res.json(bookmark);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/bookmarks/:id', (req, res) => {
+  try {
+    db.deleteBookmark(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// Reading Sessions & Stats API
+// ============================================================
+app.get('/api/stats', (req, res) => {
+  try {
+    res.json(db.getReadingStats());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/reading-sessions', (req, res) => {
+  try {
+    const { book_id } = req.query;
+    const sessions = db.getReadingSessions(book_id);
+    res.json(sessions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/reading-sessions', (req, res) => {
+  try {
+    const { book_id, pages_read, duration_minutes, date } = req.body;
+    if (!book_id) return res.status(400).json({ error: 'book_id is required' });
+    const session = db.addReadingSession({
+      id: uuidv4(),
+      book_id,
+      pages_read: pages_read || 0,
+      duration_minutes: duration_minutes || 0,
+      date: date || new Date().toISOString().split('T')[0]
+    });
+    res.json(session);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/stats/goal', (req, res) => {
+  try {
+    const { year, target_books } = req.body;
+    const goal = db.setReadingGoal(year || new Date().getFullYear(), target_books || 12);
+    res.json(goal);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

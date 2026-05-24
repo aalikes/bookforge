@@ -12,6 +12,8 @@ const app = {
   activeTag: null,
   ttsUtterance: null,
   ttsSpeaking: false,
+  highlightColor: '#ffeb3b',
+  readingStartTime: null,
 
   async init() {
     this.initTheme();
@@ -131,6 +133,14 @@ const app = {
     document.getElementById('btn-prev-chapter').addEventListener('click', () => this.prevChapter());
     document.getElementById('btn-next-chapter').addEventListener('click', () => this.nextChapter());
 
+    // Reader toolbar
+    document.getElementById('btn-add-highlight').addEventListener('click', () => this.addHighlightFromSelection());
+    document.getElementById('btn-add-bookmark').addEventListener('click', () => this.addBookmark());
+    document.getElementById('btn-show-highlights').addEventListener('click', () => this.openHighlightsPanel());
+
+    // Track reading time
+    document.getElementById('reader-content').addEventListener('scroll', () => this.onReaderScroll());
+
     // TTS controls
     document.getElementById('tts-speed').addEventListener('input', (e) => {
       document.getElementById('speed-value').textContent = `${e.target.value}x`;
@@ -157,7 +167,9 @@ const app = {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
     document.getElementById(`view-${view}`).classList.add('active');
-    document.querySelector(`[data-view="${view}"]`).classList.add('active');
+    const navLink = document.querySelector(`[data-view="${view}"]`);
+    if (navLink) navLink.classList.add('active');
+    if (view === 'stats') this.loadStats();
   },
 
   // ============================================================
@@ -365,6 +377,10 @@ const app = {
                 ? `<button class="btn btn-ghost" onclick="app.openAudiobook('${book.id}')">Audiobook</button>`
                 : ''
               }
+              ${['EPUB', 'TXT', 'HTML', 'HTM'].includes(book.format)
+                ? `<button class="btn btn-ghost" onclick="app.convertBook('${book.id}')">Convert to PDF</button>`
+                : ''
+              }
               ${book.file_size > 0 ? `<button class="btn btn-ghost" onclick="app.downloadBook('${book.id}')">Download</button>` : ''}
               <button class="btn btn-ghost" onclick="app.syncBook('${book.id}')">Sync All</button>
               <button class="btn btn-danger" onclick="app.deleteBook('${book.id}')">Delete</button>
@@ -511,15 +527,24 @@ const app = {
     document.getElementById('reader-progress').textContent =
       `Chapter ${index + 1} of ${this.currentChapters.length}`;
 
+    // Update progress bar
+    const percentage = ((index + 1) / this.currentChapters.length) * 100;
+    const progressFill = document.getElementById('reader-progress-fill');
+    const percentText = document.getElementById('reader-percentage');
+    if (progressFill) progressFill.style.width = `${percentage}%`;
+    if (percentText) percentText.textContent = `${Math.round(percentage)}%`;
+
     // Save progress
     if (this.currentBook) {
-      const percentage = ((index + 1) / this.currentChapters.length) * 100;
       fetch(`/api/books/${this.currentBook.id}/progress`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ position: index, percentage, chapter_index: index })
       }).catch(() => {});
     }
+
+    // Start reading timer
+    this.readingStartTime = Date.now();
   },
 
   prevChapter() { this.goToChapter(this.currentChapterIndex - 1); },
@@ -908,6 +933,321 @@ const app = {
       this.openBookDetail(bookId);
     } catch (err) {
       this.toast('Failed to update rating', 'error');
+    }
+  },
+
+  // ============================================================
+  // Format Conversion
+  // ============================================================
+  async convertBook(id) {
+    this.toast('Converting to PDF...', 'info');
+    try {
+      const res = await fetch(`/api/books/${id}/convert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetFormat: 'PDF' })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      this.toast('Conversion complete! Downloading...', 'success');
+      window.open(data.downloadUrl, '_blank');
+    } catch (err) {
+      this.toast(`Conversion failed: ${err.message}`, 'error');
+    }
+  },
+
+  // ============================================================
+  // Highlights & Annotations
+  // ============================================================
+  addHighlightFromSelection() {
+    const selection = window.getSelection();
+    const text = selection.toString().trim();
+    if (!text) {
+      this.openHighlightsPanel();
+      return;
+    }
+    document.getElementById('highlight-text').value = text;
+    this.openHighlightsPanel();
+  },
+
+  selectHighlightColor(el) {
+    document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+    el.classList.add('active');
+    this.highlightColor = el.dataset.color;
+  },
+
+  async saveHighlight() {
+    const text = document.getElementById('highlight-text').value.trim();
+    if (!text || !this.currentBook) {
+      this.toast('No text to highlight', 'error');
+      return;
+    }
+    const note = document.getElementById('highlight-note').value.trim();
+
+    try {
+      const res = await fetch(`/api/books/${this.currentBook.id}/highlights`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          note,
+          chapter_index: this.currentChapterIndex,
+          position: 0,
+          color: this.highlightColor
+        })
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      this.toast('Highlight saved', 'success');
+      document.getElementById('highlight-text').value = '';
+      document.getElementById('highlight-note').value = '';
+      this.loadHighlightsPanel();
+    } catch (err) {
+      this.toast('Failed to save highlight', 'error');
+    }
+  },
+
+  async deleteHighlight(id) {
+    try {
+      await fetch(`/api/highlights/${id}`, { method: 'DELETE' });
+      this.toast('Highlight deleted', 'success');
+      this.loadHighlightsPanel();
+    } catch (err) {
+      this.toast('Failed to delete highlight', 'error');
+    }
+  },
+
+  openHighlightsPanel() {
+    document.getElementById('highlights-panel').classList.remove('hidden');
+    this.loadHighlightsPanel();
+  },
+
+  closeHighlightsPanel() {
+    document.getElementById('highlights-panel').classList.add('hidden');
+  },
+
+  async loadHighlightsPanel() {
+    if (!this.currentBook) return;
+
+    // Load highlights
+    const hlRes = await fetch(`/api/books/${this.currentBook.id}/highlights`);
+    const highlights = await hlRes.json();
+    const hlList = document.getElementById('highlights-list');
+    hlList.innerHTML = highlights.length === 0
+      ? '<p class="empty-text">No highlights yet</p>'
+      : highlights.map(h => `
+          <div class="highlight-item" style="border-left: 4px solid ${h.color}">
+            <p class="highlight-text">"${this.escape(h.text)}"</p>
+            ${h.note ? `<p class="highlight-note">${this.escape(h.note)}</p>` : ''}
+            <div class="highlight-meta">
+              <span>Chapter ${(h.chapter_index || 0) + 1}</span>
+              <span>${new Date(h.created_at).toLocaleDateString()}</span>
+              <button class="btn btn-ghost btn-xs" onclick="app.deleteHighlight('${h.id}')">Delete</button>
+            </div>
+          </div>
+        `).join('');
+
+    // Load bookmarks
+    const bmRes = await fetch(`/api/books/${this.currentBook.id}/bookmarks`);
+    const bookmarks = await bmRes.json();
+    const bmList = document.getElementById('bookmarks-list');
+    bmList.innerHTML = bookmarks.length === 0
+      ? '<p class="empty-text">No bookmarks yet</p>'
+      : bookmarks.map(b => `
+          <div class="bookmark-item">
+            <span class="bookmark-label" onclick="app.goToChapter(${b.chapter_index}); app.closeHighlightsPanel();">
+              📖 ${this.escape(b.label)}
+            </span>
+            <button class="btn btn-ghost btn-xs" onclick="app.deleteBookmark('${b.id}')">×</button>
+          </div>
+        `).join('');
+  },
+
+  // ============================================================
+  // Bookmarks
+  // ============================================================
+  async addBookmark() {
+    if (!this.currentBook) return;
+    const label = `Chapter ${this.currentChapterIndex + 1}${this.currentChapters[this.currentChapterIndex] ? ' — ' + (this.currentChapters[this.currentChapterIndex].title || '') : ''}`;
+    try {
+      await fetch(`/api/books/${this.currentBook.id}/bookmarks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chapter_index: this.currentChapterIndex,
+          position: 0,
+          label
+        })
+      });
+      this.toast('Bookmark added', 'success');
+    } catch (err) {
+      this.toast('Failed to add bookmark', 'error');
+    }
+  },
+
+  async deleteBookmark(id) {
+    try {
+      await fetch(`/api/bookmarks/${id}`, { method: 'DELETE' });
+      this.toast('Bookmark removed', 'success');
+      this.loadHighlightsPanel();
+    } catch (err) {
+      this.toast('Failed to delete bookmark', 'error');
+    }
+  },
+
+  // ============================================================
+  // Reader scroll tracking
+  // ============================================================
+  onReaderScroll() {
+    const content = document.getElementById('reader-content');
+    if (!content || !this.currentBook) return;
+    const scrollPercent = content.scrollTop / (content.scrollHeight - content.clientHeight || 1);
+    const chapterPercent = (this.currentChapterIndex / this.currentChapters.length) * 100;
+    const withinChapter = (scrollPercent * 100) / this.currentChapters.length;
+    const total = Math.min(100, chapterPercent + withinChapter);
+    const progressFill = document.getElementById('reader-progress-fill');
+    const percentText = document.getElementById('reader-percentage');
+    if (progressFill) progressFill.style.width = `${total}%`;
+    if (percentText) percentText.textContent = `${Math.round(total)}%`;
+  },
+
+  // ============================================================
+  // Statistics Dashboard
+  // ============================================================
+  async loadStats() {
+    try {
+      const res = await fetch('/api/stats');
+      const stats = await res.json();
+
+      document.getElementById('stat-total-books').textContent = stats.total || 0;
+      document.getElementById('stat-books-finished').textContent = stats.byStatus.finished || 0;
+      document.getElementById('stat-pages-day').textContent = stats.pagesPerDay || 0;
+      document.getElementById('stat-streak').textContent = stats.streak || 0;
+
+      // Goal ring
+      const current = stats.booksThisYear || 0;
+      const target = stats.yearlyGoal || 12;
+      document.getElementById('goal-current').textContent = current;
+      document.getElementById('goal-target').textContent = target;
+      document.getElementById('goal-input').value = target;
+      document.getElementById('goal-year').textContent = new Date().getFullYear();
+
+      const circumference = 314;
+      const progress = Math.min(current / target, 1);
+      const offset = circumference * (1 - progress);
+      document.getElementById('goal-ring-fill').setAttribute('stroke-dashoffset', offset);
+
+      // Breakdown bars
+      const breakdown = document.getElementById('breakdown-bars');
+      const statuses = [
+        { key: 'finished', label: 'Finished', color: 'var(--success, #4caf50)' },
+        { key: 'currently-reading', label: 'Reading', color: 'var(--primary, #6c63ff)' },
+        { key: 'to-read', label: 'To Read', color: 'var(--info, #2196f3)' },
+        { key: 'abandoned', label: 'Abandoned', color: 'var(--danger, #e91e63)' }
+      ];
+      const total = stats.total || 1;
+      breakdown.innerHTML = statuses.map(s => {
+        const count = stats.byStatus[s.key] || 0;
+        const pct = Math.round((count / total) * 100);
+        return `
+          <div class="breakdown-row">
+            <span class="breakdown-label">${s.label}</span>
+            <div class="breakdown-bar-track">
+              <div class="breakdown-bar-fill" style="width:${pct}%;background:${s.color}"></div>
+            </div>
+            <span class="breakdown-count">${count}</span>
+          </div>
+        `;
+      }).join('');
+
+      // Populate book selector for session logging
+      const bookSelect = document.getElementById('session-book');
+      if (bookSelect && this.books.length > 0) {
+        bookSelect.innerHTML = this.books.map(b => `<option value="${b.id}">${this.escape(b.title)}</option>`).join('');
+      }
+
+      // Set today's date as default
+      const dateInput = document.getElementById('session-date');
+      if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+      }
+
+      // Load recent sessions
+      this.loadRecentSessions();
+    } catch (err) {
+      console.error('Failed to load stats:', err);
+    }
+  },
+
+  async loadRecentSessions() {
+    try {
+      const res = await fetch('/api/reading-sessions');
+      const sessions = await res.json();
+      const container = document.getElementById('recent-sessions');
+      if (!container) return;
+
+      if (sessions.length === 0) {
+        container.innerHTML = '<p class="empty-text">No reading sessions logged yet. Start reading and log your progress!</p>';
+        return;
+      }
+
+      container.innerHTML = `
+        <table class="sessions-table">
+          <thead><tr><th>Date</th><th>Book</th><th>Pages</th><th>Duration</th></tr></thead>
+          <tbody>
+            ${sessions.slice(0, 20).map(s => {
+              const book = this.books.find(b => b.id === s.book_id);
+              return `<tr>
+                <td>${s.date}</td>
+                <td>${book ? this.escape(book.title) : 'Unknown'}</td>
+                <td>${s.pages_read} pages</td>
+                <td>${s.duration_minutes} min</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (err) {
+      console.error('Failed to load sessions:', err);
+    }
+  },
+
+  async logReadingSession() {
+    const bookId = document.getElementById('session-book').value;
+    const pages = parseInt(document.getElementById('session-pages').value) || 0;
+    const duration = parseInt(document.getElementById('session-duration').value) || 0;
+    const date = document.getElementById('session-date').value;
+
+    if (!bookId || (!pages && !duration)) {
+      this.toast('Please fill in session details', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/reading-sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ book_id: bookId, pages_read: pages, duration_minutes: duration, date })
+      });
+      if (!res.ok) throw new Error('Failed to log session');
+      this.toast('Reading session logged!', 'success');
+      this.loadStats();
+    } catch (err) {
+      this.toast('Failed to log session', 'error');
+    }
+  },
+
+  async setReadingGoal() {
+    const target = parseInt(document.getElementById('goal-input').value) || 12;
+    try {
+      await fetch('/api/stats/goal', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year: new Date().getFullYear(), target_books: target })
+      });
+      this.toast('Reading goal updated!', 'success');
+      this.loadStats();
+    } catch (err) {
+      this.toast('Failed to update goal', 'error');
     }
   },
 
